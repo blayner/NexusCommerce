@@ -1,0 +1,69 @@
+name: nexus-commerce
+
+x-app-env: &app-env
+  NODE_ENV: production
+  PORT: 3000
+  DATABASE_URL: postgresql://nexus:nexus@postgres:5432/nexus_commerce?schema=public
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  # Local-only secrets. Replace for any shared environment.
+  JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-please-change}
+  PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-local-webhook-secret}
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus
+      POSTGRES_DB: nexus_commerce
+    ports:
+      - '5432:5432'
+    volumes:
+      # Postgres 18 images keep data under a major-version subdirectory of /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nexus -d nexus_commerce']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  app:
+    build:
+      context: .
+      target: runtime
+    environment: *app-env
+    ports:
+      - '3000:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
