@@ -29,6 +29,10 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
       ],
+      // ESLint 10 enables no-useless-assignment in `recommended`, but its scope analysis
+      // does not see reads inside TypeScript parameter decorators (e.g. @Headers(CONST)),
+      // which produces false positives in Nest controllers. TS's noUnusedLocals covers this.
+      'no-useless-assignment': 'off',
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/unbound-method': 'off',
     },

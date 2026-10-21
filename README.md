@@ -1,6 +1,6 @@
 # NexusCommerce
 
-A **modular monolith** e-commerce backend built with **NestJS 11 / TypeScript**, applying
+A **modular monolith** e-commerce backend built with **NestJS 12 / TypeScript**, applying
 **Domain-Driven Design** and **hexagonal architecture** (ports & adapters). It covers the
 core flows of an online store: catalog, cart, checkout with an orchestrated saga,
 Brazilian payment methods (credit card, PIX, boleto) and asynchronous notifications.
@@ -16,13 +16,21 @@ service later without rewriting callers.
 | Concern | Choice |
 |---|---|
 | Runtime | Node.js 26 (Active LTS) — CI also runs 22 and 24 |
-| Framework | NestJS 11, TypeScript 5.9 (strict) |
+| Framework | NestJS 12, TypeScript 6.0 (strict) |
 | Persistence | PostgreSQL 18 via Prisma 7 (Rust-free client + `pg` driver adapter) |
-| Cache / carts / queues | Redis 8 (ioredis 5), BullMQ 5 |
+| Cache / carts / queues | Redis 8 (ioredis 6), BullMQ 6 (job schedulers) |
 | Auth | JWT (global guard, role-based authorization) |
-| Tests | Jest 30, Supertest, `@nestjs/testing` |
-| Quality | ESLint 9 (flat config) + typescript-eslint, Prettier |
+| Tests | Jest 30 (ts-jest), Supertest, `@nestjs/testing` |
+| Quality | ESLint 10 (flat config) + typescript-eslint, Prettier |
 | Delivery | Multi-stage Docker image, docker-compose, GitHub Actions |
+
+> **Why TypeScript 6 and not 7?** TypeScript 7 (the native Go compiler) does not ship the JS compiler API yet,
+> which typescript-eslint (`<6.1`), ts-jest (`<7`) and `@nestjs/cli` (`~6.0`) still depend on. The project moves
+> to 7 once that toolchain supports it.
+>
+> **ESM-only Nest.** NestJS 12 packages are ESM-only. The app stays CommonJS and loads them through Node's native
+> `require(esm)` (Node 22.12+), as the official migration guide recommends; Jest runs with `--experimental-vm-modules`
+> for the same reason (see the `test` scripts).
 
 ---
 
@@ -149,7 +157,7 @@ All transitions go through `OrderStateMachine` and are appended to an audit trai
   - CPF/CNPJ are validated.
 - **Webhooks.** HMAC-SHA256 over the raw body with constant-time comparison.
 - **Async work with BullMQ.** Notification delivery uses exponential backoff and separates
-  permanent from transient failures. A repeatable job expires unpaid PIX/boleto charges and
+  permanent from transient failures. A BullMQ job scheduler expires unpaid PIX/boleto charges and
   releases their stock.
 - **Caching.** Cache-aside with single-flight (stampede protection), namespace invalidation
   via `SCAN`, and graceful degradation when Redis is down. Carts live in Redis with a
@@ -162,7 +170,7 @@ All transitions go through `OrderStateMachine` and are appended to an audit trai
 
 ## Running locally
 
-Requirements: Node.js 22+ (26 recommended, see `.nvmrc`) and Docker.
+Requirements: Node.js 22.12+ (26 recommended, see `.nvmrc`) and Docker.
 
 ```bash
 cp .env.example .env

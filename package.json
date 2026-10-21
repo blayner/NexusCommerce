@@ -6,7 +6,7 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12"
   },
   "scripts": {
     "build": "nest build -p tsconfig.build.json",
@@ -16,42 +16,42 @@
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
+    "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
+    "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@nestjs/bullmq": "^11.0.5",
-    "@nestjs/common": "^11.2.11",
-    "@nestjs/config": "^4.0.4",
-    "@nestjs/core": "^11.2.11",
-    "@nestjs/jwt": "^11.0.2",
-    "@nestjs/platform-express": "^11.2.11",
+    "@nestjs/bullmq": "^12.0.2",
+    "@nestjs/common": "^12.6.0",
+    "@nestjs/config": "^12.1.1",
+    "@nestjs/core": "^12.6.0",
+    "@nestjs/jwt": "^12.0.5",
+    "@nestjs/platform-express": "^12.6.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "bcryptjs": "^3.0.3",
-    "bullmq": "^5.81.5",
+    "bullmq": "^6.7.8",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "ioredis": "^5.11.1",
+    "ioredis": "^6.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
-    "@nestjs/cli": "^11.0.24",
-    "@nestjs/testing": "^11.2.11",
+    "@eslint/js": "^10.0.1",
+    "@nestjs/cli": "^12.0.15",
+    "@nestjs/testing": "^12.6.0",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.6.6",
+    "@types/node": "^22.20.5",
     "@types/supertest": "^7.2.1",
     "dotenv": "^18.0.10",
-    "eslint": "^9.39.5",
+    "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.7",
     "globals": "^17.14.0",
@@ -60,7 +60,7 @@
     "prisma": "^7.10.1",
     "supertest": "^7.3.2",
     "ts-jest": "^29.4.15",
-    "typescript": "^5.9.3",
+    "typescript": "~6.0.3",
     "typescript-eslint": "^8.73.0"
   },
   "jest": {
@@ -82,6 +82,14 @@
       "!src/generated/**"
     ],
     "coverageDirectory": "coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    }
+  },
+  "overrides": {
+    "effect": "^3.22.5",
+    "glob": "^14.0.6",
+    "minimatch": "^11.0.9"
   }
 }

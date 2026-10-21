@@ -7,9 +7,10 @@ export const PAYMENT_MAINTENANCE_QUEUE = 'payment-maintenance';
 const EXPIRE_JOB = 'expire-overdue-payments';
 
 /**
- * Repeatable job that expires unpaid PIX/boleto charges. BullMQ guarantees a single
- * execution per tick across all app instances (the repeat key is shared in Redis),
+ * Job scheduler that expires unpaid PIX/boleto charges. BullMQ guarantees a single
+ * execution per tick across all app instances (the scheduler id is shared in Redis),
  * which a plain setInterval in a horizontally scaled deployment would not.
+ * `upsertJobScheduler` is idempotent, so every instance can call it on boot.
  */
 @Processor(PAYMENT_MAINTENANCE_QUEUE)
 export class PaymentExpirationProcessor extends WorkerHost implements OnApplicationBootstrap {
@@ -23,10 +24,10 @@ export class PaymentExpirationProcessor extends WorkerHost implements OnApplicat
   }
 
   async onApplicationBootstrap(): Promise<void> {
-    await this.queue.add(
+    await this.queue.upsertJobScheduler(
       EXPIRE_JOB,
-      {},
-      { repeat: { every: 60_000 }, jobId: EXPIRE_JOB, removeOnComplete: true, removeOnFail: 100 },
+      { every: 60_000 },
+      { name: EXPIRE_JOB, data: {}, opts: { removeOnComplete: true, removeOnFail: 100 } },
     );
   }
 
