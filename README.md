@@ -30,7 +30,8 @@ service later without rewriting callers.
 >
 > **ESM-only Nest.** NestJS 12 packages are ESM-only. The app stays CommonJS and loads them through Node's native
 > `require(esm)` (Node 22.12+), as the official migration guide recommends; Jest runs with `--experimental-vm-modules`
-> for the same reason (see the `test` scripts).
+> for the same reason (see the `test` scripts). Jest only supports `require(esm)` on Node 24.9+, so running the
+> test suites needs Node 24.9+; on Node 22 CI builds the app and smoke-tests the compiled output instead.
 
 ---
 
@@ -170,7 +171,7 @@ All transitions go through `OrderStateMachine` and are appended to an audit trai
 
 ## Running locally
 
-Requirements: Node.js 22.12+ (26 recommended, see `.nvmrc`) and Docker.
+Requirements: Node.js 22.12+ to run the app, 24.9+ to run the tests (26 recommended, see `.nvmrc`) and Docker.
 
 ```bash
 cp .env.example .env

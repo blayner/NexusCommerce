@@ -72,7 +72,16 @@
     "rootDir": ".",
     "testRegex": "test/unit/.*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.ts$": "ts-jest"
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "diagnostics": {
+            "ignoreCodes": [
+              151002
+            ]
+          }
+        }
+      ]
     },
     "collectCoverageFrom": [
       "src/**/*.ts",

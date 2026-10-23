@@ -29,8 +29,15 @@ jobs:
       - run: npm ci # also runs `prisma generate`
       - run: npm run lint
       - run: npm run typecheck
+      # NestJS 12 is ESM-only. Node itself loads it via require(esm) from 22.12, but Jest only
+      # supports require(esm) on Node 24.9+, so unit tests run on 24/26 and Node 22 gets a
+      # runtime smoke test of the compiled app instead.
       - run: npm run test:cov
+        if: matrix.node != 22
       - run: npm run build
+      - name: Smoke test compiled app (require(esm) on Node 22)
+        if: matrix.node == 22
+        run: node -e "require('./dist/app.module.js'); console.log('AppModule loaded on', process.version)"
       - name: Upload coverage
         if: matrix.node == 26
         uses: actions/upload-artifact@v7
