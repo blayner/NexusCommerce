@@ -24,7 +24,7 @@ Use an **orchestration-based saga** (`OrderPlacementSaga`, built on a generic
 The order is persisted **before** the saga runs (CONFIRMED) and again after it, so a crash
 mid-way leaves a recoverable record. Asynchronous methods (PIX/boleto) end the saga in
 `PAYMENT_PENDING` with the reservation held. Settlement then arrives as a payment event,
-and a BullMQ repeatable job expires unpaid charges.
+and a BullMQ job scheduler (`upsertJobScheduler`) expires unpaid charges.
 
 The payment idempotency key is derived from the order id (`order:<id>`), and checkout
 accepts an `Idempotency-Key` header, so client retries never create a second order or
@@ -38,3 +38,10 @@ charge.
 - Choreography (each module reacting to events) was rejected for checkout because the flow
   would be spread across modules and harder to reason about. It is still used for
   post-checkout reactions (ADR 0003).
+
+## Update (2026-10)
+
+The expiration of unpaid charges originally used a BullMQ 5 *repeatable job*. BullMQ 6
+removed `repeat` from job options, so the job now uses a **job scheduler**
+(`queue.upsertJobScheduler`). The saga's decision is unchanged; see ADR 0006 for why the
+scheduler stays safe with several instances running.
