@@ -64,6 +64,22 @@ services:
       redis:
         condition: service_healthy
 
+  # Optional: `docker compose --profile observability up` -> http://localhost:9090
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    profiles: ['observability']
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - app
+
 volumes:
   postgres-data:
   redis-data:
+  prometheus-data:

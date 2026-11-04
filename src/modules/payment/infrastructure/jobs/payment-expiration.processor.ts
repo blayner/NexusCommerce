@@ -1,6 +1,7 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
+import { AppMetrics, instrumentJob } from '../../../../shared/application/app-metrics.port';
 import { PaymentService } from '../../application/services/payment.service';
 
 export const PAYMENT_MAINTENANCE_QUEUE = 'payment-maintenance';
@@ -19,6 +20,7 @@ export class PaymentExpirationProcessor extends WorkerHost implements OnApplicat
   constructor(
     private readonly payments: PaymentService,
     @InjectQueue(PAYMENT_MAINTENANCE_QUEUE) private readonly queue: Queue,
+    private readonly metrics: AppMetrics,
   ) {
     super();
   }
@@ -33,8 +35,10 @@ export class PaymentExpirationProcessor extends WorkerHost implements OnApplicat
 
   async process(job: Job): Promise<number> {
     if (job.name !== EXPIRE_JOB) return 0;
-    const expired = await this.payments.expireOverduePayments();
-    if (expired > 0) this.logger.log(`Expired ${expired} overdue payment(s)`);
-    return expired;
+    return instrumentJob(this.metrics, PAYMENT_MAINTENANCE_QUEUE, async () => {
+      const expired = await this.payments.expireOverduePayments();
+      if (expired > 0) this.logger.log(`Expired ${expired} overdue payment(s)`);
+      return expired;
+    });
   }
 }

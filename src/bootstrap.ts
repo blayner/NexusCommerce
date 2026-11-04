@@ -7,7 +7,7 @@ export const API_PREFIX = 'api/v1';
  * exercise exactly the same routing as production.
  */
 export function configureApp(app: INestApplication): INestApplication {
-  app.setGlobalPrefix(API_PREFIX, { exclude: ['health/live', 'health/ready'] });
+  app.setGlobalPrefix(API_PREFIX, { exclude: ['health/live', 'health/ready', 'metrics'] });
   app.enableShutdownHooks();
   app.enableCors({ origin: process.env.CORS_ORIGIN?.split(',') ?? false });
   return app;

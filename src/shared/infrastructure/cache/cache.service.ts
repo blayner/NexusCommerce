@@ -2,8 +2,13 @@
  * Application-facing cache abstraction. Declared as an abstract class so it doubles as
  * the Nest DI token, letting tests swap in `InMemoryCacheService` without Redis.
  */
+import { AppMetrics, NoopAppMetrics } from '../../application/app-metrics.port';
+
 export abstract class CacheService {
   private readonly inFlight = new Map<string, Promise<unknown>>();
+
+  /** Hit/miss counters for `wrap`. Adapters that have a metrics backend replace it. */
+  protected metrics: AppMetrics = new NoopAppMetrics();
 
   abstract get<T>(key: string): Promise<T | null>;
   abstract set<T>(key: string, value: T, ttlSeconds?: number): Promise<void>;
@@ -16,7 +21,12 @@ export abstract class CacheService {
    */
   async wrap<T>(key: string, ttlSeconds: number, loader: () => Promise<T>): Promise<T> {
     const cached = await this.get<T>(key);
-    if (cached !== null) return cached;
+    const namespace = cacheNamespace(key);
+    if (cached !== null) {
+      this.metrics.cacheLookup(namespace, 'hit');
+      return cached;
+    }
+    this.metrics.cacheLookup(namespace, 'miss');
 
     const pending = this.inFlight.get(key) as Promise<T> | undefined;
     if (pending) return pending;
@@ -36,4 +46,13 @@ export abstract class CacheService {
     this.inFlight.set(key, load);
     return load;
   }
+}
+
+/**
+ * Metric label for a cache key: its first two segments (`catalog:product:<id>` ->
+ * `catalog:product`), so ids and hashes never become label values.
+ */
+export function cacheNamespace(key: string): string {
+  const segments = key.split(':');
+  return segments.length > 2 ? segments.slice(0, 2).join(':') : segments[0] || 'default';
 }

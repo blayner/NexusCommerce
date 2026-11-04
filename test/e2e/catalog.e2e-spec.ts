@@ -105,4 +105,20 @@ describe('Catalog (e2e)', () => {
       .expect(200);
     expect(res.body.availableStock).toBe(10);
   });
+
+  it('exposes Prometheus metrics with route templates and cache hit/miss', async () => {
+    const product = await createProduct(ctx, admin);
+    for (let i = 0; i < 2; i++) {
+      await request(ctx.app.getHttpServer())
+        .get(ctx.api(`/products/${product.id}`))
+        .expect(200);
+    }
+
+    const res = await request(ctx.app.getHttpServer()).get('/metrics').expect(200);
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(res.text).toContain('route="/api/v1/products/:id"');
+    expect(res.text).not.toContain(product.id);
+    expect(res.text).toMatch(/nexus_cache_lookups_total\{[^}]*result="hit"[^}]*\}/);
+    expect(res.text).toContain('nexus_process_cpu_seconds_total');
+  });
 });

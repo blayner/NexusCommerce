@@ -15,6 +15,8 @@ import { CacheModule } from './shared/infrastructure/cache/cache.module';
 import { HealthModule } from './shared/infrastructure/health/health.module';
 import { DomainExceptionFilter } from './shared/infrastructure/http/domain-exception.filter';
 import { LoggingInterceptor } from './shared/infrastructure/http/logging.interceptor';
+import { HttpMetricsInterceptor } from './shared/infrastructure/metrics/http-metrics.interceptor';
+import { MetricsModule } from './shared/infrastructure/metrics/metrics.module';
 import { PrismaModule } from './shared/infrastructure/prisma/prisma.module';
 import { QueueModule } from './shared/infrastructure/queue/queue.module';
 import { SharedModule } from './shared/shared.module';
@@ -34,6 +36,7 @@ import { SharedModule } from './shared/shared.module';
     QueueModule,
     AuthModule,
     HealthModule,
+    MetricsModule,
     // Bounded contexts
     IdentityModule,
     CatalogModule,
@@ -48,6 +51,7 @@ import { SharedModule } from './shared/shared.module';
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: HttpMetricsInterceptor },
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({

@@ -1,6 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import Redis from 'ioredis';
+import { AppMetrics } from '../../application/app-metrics.port';
 import { databaseConfig } from '../../../config/database.config';
 import { CacheService } from './cache.service';
 import { REDIS_CLIENT } from './redis.provider';
@@ -17,8 +18,10 @@ export class RedisCacheService extends CacheService {
   constructor(
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     @Inject(databaseConfig.KEY) private readonly config: ConfigType<typeof databaseConfig>,
+    @Optional() metrics?: AppMetrics,
   ) {
     super();
+    if (metrics) this.metrics = metrics;
   }
 
   async get<T>(key: string): Promise<T | null> {

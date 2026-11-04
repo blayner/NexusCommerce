@@ -1,4 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  AppMetrics,
+  NoopAppMetrics,
+  PaymentAttemptOutcome,
+} from '../../../../shared/application/app-metrics.port';
 import { EventBus } from '../../../../shared/application/event-bus';
 import { DomainError, DomainException, err, Money, ok, Result } from '../../../../shared/domain';
 import { Payment } from '../../domain/entities/payment.entity';
@@ -14,6 +19,12 @@ import {
   ProcessPaymentCommand,
 } from '../commands/process-payment.command';
 
+const OUTCOME_LABELS: Record<StrategyOutcome['status'], PaymentAttemptOutcome> = {
+  APPROVED: 'approved',
+  PENDING: 'pending',
+  DECLINED: 'declined',
+};
+
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
@@ -22,6 +33,7 @@ export class PaymentService {
     @Inject(PAYMENT_REPOSITORY) private readonly payments: PaymentRepositoryPort,
     private readonly strategies: PaymentStrategyResolver,
     private readonly eventBus: EventBus,
+    @Optional() private readonly metrics: AppMetrics = new NoopAppMetrics(),
   ) {}
 
   /**
@@ -63,6 +75,7 @@ export class PaymentService {
     }
 
     const outcome = await this.executeStrategy(payment);
+    this.metrics.paymentAttempt(payment.method.type, OUTCOME_LABELS[outcome.status]);
     const applied = this.applyOutcome(payment, outcome);
     if (!applied.ok) return applied;
 

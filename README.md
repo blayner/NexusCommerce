@@ -22,6 +22,7 @@ service later without rewriting callers.
 | Auth | JWT (global guard, role-based authorization) |
 | Tests | Jest 30 (ts-jest), Supertest, `@nestjs/testing` |
 | Quality | ESLint 10 (flat config) + typescript-eslint, Prettier |
+| Observability | Structured access logs with `x-request-id`, health checks, Prometheus metrics (`@prometheus-io/client`) |
 | Delivery | Multi-stage Docker image, docker-compose, GitHub Actions |
 
 > **Why TypeScript 6 and not 7?** TypeScript 7 (the native Go compiler) does not ship the JS compiler API yet,
@@ -140,6 +141,39 @@ stateDiagram-v2
 
 All transitions go through `OrderStateMachine` and are appended to an audit trail on the order.
 
+### Observability
+
+```mermaid
+flowchart LR
+    HTTP[HttpMetricsInterceptor] --> M[(PrometheusAppMetrics<br/>own Registry)]
+    Bus[EventBus: order.*] --> Sub[OrderMetricsSubscriber] --> M
+    PaySvc[PaymentService] -- "AppMetrics port" --> M
+    Cache[CacheService.wrap] -- "AppMetrics port" --> M
+    Jobs[BullMQ processors<br/>instrumentJob] -- "AppMetrics port" --> M
+    M --> E["GET /metrics"] --> Prom[Prometheus]
+```
+
+Application code depends on the `AppMetrics` **port** (`src/shared/application/app-metrics.port.ts`),
+never on the Prometheus client, so the hexagonal rule from ADR 0002 also holds for observability.
+`PrometheusAppMetrics` is the adapter, and `NoopAppMetrics` is the fallback in unit tests.
+Order transitions are counted by **subscribing to domain events**, so the `Order` aggregate stays
+free of metrics code.
+
+| Metric | Type | Labels |
+|---|---|---|
+| `nexus_http_request_duration_seconds` | histogram | `method`, `route` (template, e.g. `/api/v1/products/:id`), `status_code` |
+| `nexus_order_transitions_total` | counter | `transition` (`placed`, `paid`, `shipped`, `delivered`, `cancelled`) |
+| `nexus_order_cancellations_total` | counter | `from_status` |
+| `nexus_payment_attempts_total` | counter | `method` (`credit_card`, `pix`, `boleto`), `outcome` (`approved`, `pending`, `declined`) |
+| `nexus_cache_lookups_total` | counter | `namespace` (`catalog:product`, `catalog:search`), `result` (`hit`, `miss`) |
+| `nexus_queue_jobs_total` | counter | `queue`, `outcome` (`completed`, `failed`) |
+| `nexus_queue_job_duration_seconds` | histogram | `queue`, `outcome` |
+| `nexus_process_*`, `nexus_nodejs_*` | default | process CPU, memory, event loop lag, GC |
+
+Label values come only from closed sets (route templates, enums, key namespaces), never from ids,
+e-mails or raw URLs, which keeps the number of time series bounded. See
+[ADR 0007](docs/adr/0007-prometheus-metrics.md).
+
 ---
 
 ## Highlights
@@ -187,6 +221,14 @@ Or run the whole stack (migrations run as a one-off container):
 docker compose up --build
 ```
 
+To also run Prometheus (optional `observability` profile, scraping `app:3000/metrics` every 15s):
+
+```bash
+docker compose --profile observability up --build
+# metrics:    http://localhost:3000/metrics
+# Prometheus: http://localhost:9090  (try: sum by (route) (rate(nexus_http_request_duration_seconds_count[5m])))
+```
+
 ### Quick tour
 
 ```bash
@@ -223,6 +265,7 @@ Sandbox card tokens: `tok_<anything>` is approved; `tok_declined` and
 | GET | `/payments/:id` | owner / admin |
 | POST | `/payments/webhooks/provider` | HMAC-signed |
 | GET | `/health/live`, `/health/ready` | public |
+| GET | `/metrics` (Prometheus, outside `/api/v1`) | public in the app; restrict at the network level |
 
 ---
 
@@ -255,7 +298,8 @@ npm run test:e2e    # needs PostgreSQL + Redis (docker compose up -d postgres re
 | [0003](docs/adr/0003-in-process-domain-events.md) | In-process domain events (and when to add an outbox) |
 | [0004](docs/adr/0004-optimistic-concurrency.md) | Optimistic concurrency for stock |
 | [0005](docs/adr/0005-orchestrated-checkout-saga.md) | Orchestrated saga for checkout |
-| [0006](docs/adr/0006-redis-for-carts-cache-and-queues.md) | Redis for carts, cache and queues |
+| [0006](docs/adr/0006-redis-for-carts-cache-and-queues.md) | Redis for carts, cache and queues (updated for BullMQ 6 job schedulers) |
+| [0007](docs/adr/0007-prometheus-metrics.md) | Prometheus metrics behind an `AppMetrics` port |
 
 ## Known limitations / next steps
 
@@ -264,6 +308,8 @@ npm run test:e2e    # needs PostgreSQL + Redis (docker compose up -d postgres re
 - Payment providers are sandboxes. A real acquirer or PSP would plug in as another `PaymentStrategy`.
 - Provider errors are treated as declines. Production would need an `UNKNOWN` state plus reconciliation.
 - No OpenAPI document yet. `@nestjs/swagger` decorators would be the next addition.
+- Metrics only, no distributed tracing yet. OpenTelemetry tracing (and possibly OTLP metrics) is the
+  next observability step (see ADR 0007). `/metrics` has no authentication of its own.
 
 ## License
 
