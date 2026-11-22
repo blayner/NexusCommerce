@@ -7,10 +7,14 @@
 // Prisma 7: Rust-free client generated as TypeScript into src/generated (git-ignored,
 // produced by `prisma generate` on postinstall). The connection URL lives in
 // prisma.config.ts for the CLI and is handed to the `pg` driver adapter at runtime.
+// importFileExtension is pinned: without it the generator infers the extension from a tsconfig.json,
+// and the Docker deps stage runs `prisma generate` before tsconfig.json is copied, which produced
+// `./internal/class.ts` imports that crash the compiled app at startup.
 generator client {
-  provider     = "prisma-client"
-  output       = "../../../generated/prisma"
-  moduleFormat = "cjs"
+  provider            = "prisma-client"
+  output              = "../../../generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = "js"
 }
 
 datasource db {

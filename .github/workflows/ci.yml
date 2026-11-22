@@ -94,5 +94,16 @@ jobs:
           target: runtime
           push: false
           tags: nexus-commerce:ci
+          load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # Building is not enough: a broken import in the generated Prisma client only fails when
+      # the compiled app is loaded. Requiring AppModule resolves every module without needing a DB.
+      - name: Smoke-test the image
+        run: >-
+          docker run --rm
+          -e DATABASE_URL=postgresql://ci:ci@localhost:5432/ci
+          -e JWT_SECRET=ci-smoke-test-secret-0123456789abcdef
+          -e PAYMENT_WEBHOOK_SECRET=ci-smoke
+          --entrypoint node nexus-commerce:ci
+          -e "require('./dist/app.module.js'); console.log('AppModule loaded')"

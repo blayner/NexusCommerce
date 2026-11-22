@@ -251,6 +251,34 @@ curl -s -X POST localhost:3000/api/v1/orders -H "Authorization: Bearer $TOKEN" \
 Sandbox card tokens: `tok_<anything>` is approved; `tok_declined` and
 `tok_insufficient_funds` are declined.
 
+Admins are never self-registered (registration always creates a `CUSTOMER`). Locally, register a
+user and promote it, then log in again so the new token carries the role:
+
+```bash
+docker compose exec postgres psql -U nexus -d nexus_commerce \
+  -c "UPDATE users SET role='ADMIN' WHERE email='admin@example.com'"
+
+# Products need an uppercase SKU (e.g. KB-MX-01); stock starts at initialStock
+curl -s -X POST localhost:3000/api/v1/products -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Teclado mecânico","sku":"KB-MX-01","priceInCents":34990,"initialStock":10}'
+```
+
+PIX and boleto orders stay `PAYMENT_PENDING` until the provider calls the webhook. To play the
+provider, sign the raw body with `PAYMENT_WEBHOOK_SECRET` (`local-webhook-secret` in the compose
+file) and use the payment's `providerReference`, which only the provider knows (it is not exposed by
+the public API, so read it from the database):
+
+```bash
+REF=$(docker compose exec -T postgres psql -U nexus -d nexus_commerce -tAc \
+  "SELECT \"providerReference\" FROM payments WHERE status='PENDING' ORDER BY \"createdAt\" DESC LIMIT 1")
+BODY="{\"providerReference\":\"$REF\",\"status\":\"APPROVED\"}"
+SIG=$(node -e "process.stdout.write(require('crypto').createHmac('sha256','local-webhook-secret').update(process.argv[1]).digest('hex'))" "$BODY")
+curl -s -X POST localhost:3000/api/v1/payments/webhooks/provider \
+  -H 'Content-Type: application/json' -H "x-webhook-signature: $SIG" -d "$BODY"
+# -> {"received":true,"status":"APPROVED"}; the order moves to PAID. Replaying it is a no-op.
+```
+
 ### API overview
 
 | Method | Path | Access |
